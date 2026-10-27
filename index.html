@@ -552,7 +552,7 @@
                      aria-label="Distance slider. Left is close, 2 centimetres. Right is far, 20 centimetres." />
               <span class="end">20 cm<br />FAR</span>
             </div>
-            <div class="keys-hint">Keyboard: click the track, then use the &#8592; and &#8594; arrow keys to slide the blue magnet.</div>
+            <div class="keys-hint">Keyboard: click the track, then use the &#8592; and &#8594; arrow keys to slide the magnets.</div>
             <p class="model-note">Model: this lab uses force proportional to 1 / distance squared. The size buttons change how strong the magnet pair is at every distance.</p>
           </div>
         </div>
@@ -800,9 +800,10 @@
           state.forceWins = state.mode === "repel" && f >= THRESHOLD;
           state.snapped = state.mode === "attract" && d <= 2.35;
 
-          // Positions (while the red magnet is being dragged it sits at its home;
-          // otherwise the FORCE WINS shove slides it left from home)
-          var redLeft = draggingRed ? state.redLeft
+          // Positions (while either magnet is being dragged, red sits at its home:
+          // during a drag the yield IS the shove, handled by the drag itself;
+          // otherwise the FORCE WINS shove slides red left from home)
+          var redLeft = (dragging || draggingRed) ? state.redLeft
             : (state.forceWins ? Math.max(RED_PUSHED, state.redLeft - (RED_LEFT - RED_PUSHED)) : state.redLeft);
           redMag.style.left = redLeft + "px";
           // Keep the red name tag inside the track even when the magnet is pushed.
@@ -949,16 +950,36 @@
           var x = ev.clientX - rect.left;
           return distanceForBlueLeft(x - MAG_W / 2);
         }
+        function blueDragTo(ev) {
+          var rect = track.getBoundingClientRect();
+          var x = ev.clientX - rect.left;
+          var desiredBlue = x - MAG_W / 2;
+          if (state.mode === "repel") {
+            // Red yields at the FORCE WINS distance, same as blue does when red
+            // is dragged: past 25 units the free magnet gets shoved.
+            var dYield = Math.sqrt(K / THRESHOLD) + 0.15;
+            if (distanceForBlueLeft(desiredBlue) < dYield) {
+              var redNeeded = desiredBlue - MAG_W - gapForDistance(dYield);
+              if (redNeeded >= 6) {
+                state.redLeft = redNeeded;
+                setDistance(dYield);
+                return;
+              }
+              state.redLeft = 6;   // red is pinned at the wall: the gap compresses
+            }
+          }
+          setDistance(distanceForBlueLeft(desiredBlue));
+        }
         blueMag.addEventListener("pointerdown", function (ev) {
           if (state.pick < 0) return;
           dragging = true;
           blueMag.setPointerCapture(ev.pointerId);
-          setDistance(pointerToDistance(ev));
+          blueDragTo(ev);
           ev.preventDefault();
         });
         blueMag.addEventListener("pointermove", function (ev) {
           if (!dragging) return;
-          setDistance(pointerToDistance(ev));
+          blueDragTo(ev);
         });
         blueMag.addEventListener("pointerup", function () { dragging = false; });
         blueMag.addEventListener("pointercancel", function () { dragging = false; });
@@ -975,14 +996,22 @@
           var blueMax = trackWidth() - 14 - MAG_W;       // blue's right wall
           var desired = Math.max(6, Math.min(blueMax - MAG_W - 6, x - MAG_W / 2));
           if (state.mode === "repel") {
-            if (desired > bluePx - MAG_W - 6) {
-              // Crowding the minimum gap: blue gets pushed ahead of red.
-              var newBlue = Math.min(blueMax, desired + MAG_W + 6);
-              state.redLeft = newBlue - MAG_W - 6;
-              setDistance(distanceForBlueLeft(newBlue));
+            // Blue yields at the FORCE WINS distance: once the force would pass
+            // 25 units, blue slides right to hold the pair at that distance.
+            var dYield = Math.sqrt(K / THRESHOLD) + 0.15;
+            state.redLeft = desired;
+            var dStay = distanceForBlueLeft(bluePx);
+            if (dStay < dYield) {
+              var blueNeeded = desired + MAG_W + gapForDistance(dYield);
+              if (blueNeeded <= blueMax) {
+                setDistance(dYield);
+              } else {
+                // Blue is pinned at the wall: red compresses the last of the gap.
+                state.redLeft = Math.min(desired, blueMax - MAG_W - 6);
+                setDistance(distanceForBlueLeft(blueMax));
+              }
             } else {
-              state.redLeft = desired;
-              setDistance(distanceForBlueLeft(bluePx));
+              setDistance(dStay);
             }
           } else {
             // Attract: how far apart would they be if blue stayed where it is?
