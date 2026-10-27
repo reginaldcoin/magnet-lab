@@ -714,18 +714,20 @@
         var RED_LEFT = 64;        // default home of the red magnet (room to be pushed left)
         var RED_PUSHED = 6;       // where it slides to when the force wins
         function trackWidth() { return track.clientWidth; }
+        // Distance is an absolute scale, fixed by the home layout (red at RED_LEFT):
+        // the gap for a given distance is the same wherever the red magnet sits,
+        // so sliding red with blue held still truly changes the distance.
+        function gapForDistance(d) {
+          var maxGap = trackWidth() - 14 - MAG_W - (RED_LEFT + MAG_W);   // gap at d = 20, red at home
+          return 6 + (d - D_MIN) / (D_MAX - D_MIN) * (maxGap - 6);
+        }
         function blueLeftFor(d) {
-          var w = trackWidth();
-          var redFace = state.redLeft + MAG_W;
-          var maxGap = w - 14 - MAG_W - redFace;      // gap at d = 20
-          var gap = 6 + (d - D_MIN) / (D_MAX - D_MIN) * (maxGap - 6);
-          return redFace + gap;
+          var px = state.redLeft + MAG_W + gapForDistance(d);
+          return Math.min(px, trackWidth() - 14 - MAG_W);   // never past the right wall
         }
         function distanceForBlueLeft(left) {
-          var w = trackWidth();
-          var redFace = state.redLeft + MAG_W;
-          var maxGap = w - 14 - MAG_W - redFace;
-          var gap = left - redFace;
+          var maxGap = trackWidth() - 14 - MAG_W - (RED_LEFT + MAG_W);
+          var gap = left - (state.redLeft + MAG_W);
           var d = D_MIN + (gap - 6) / (maxGap - 6) * (D_MAX - D_MIN);
           return Math.max(D_MIN, Math.min(D_MAX, d));
         }
@@ -844,6 +846,10 @@
 
         function setDistance(d) {
           state.distance = Math.max(D_MIN, Math.min(D_MAX, d));
+          // With red dragged right, the far distances no longer fit on the track:
+          // the biggest distance is the one that puts blue against the right wall.
+          var dFit = distanceForBlueLeft(trackWidth() - 14 - MAG_W);
+          if (state.distance > dFit) state.distance = dFit;
           update();
         }
 
@@ -950,29 +956,49 @@
         blueMag.addEventListener("pointerup", function () { dragging = false; });
         blueMag.addEventListener("pointercancel", function () { dragging = false; });
 
-        // ----- Drag the red magnet (the blue one stays put; the gap changes) -----
+        // ----- Drag the red magnet -----
+        // The blue magnet is free, so it answers: in REPEL, pushing red into it
+        // shoves it down the track; in ATTRACT, the pull drags it along until
+        // the gap gets too wide and the pull lets go.
         var draggingRed = false;
-        function pointerToRedLeft(ev, bluePx) {
+        function redDragTo(ev) {
           var rect = track.getBoundingClientRect();
           var x = ev.clientX - rect.left;
-          var maxL = bluePx - MAG_W - 6;   // never slide it past the blue magnet
-          return Math.max(6, Math.min(maxL, x - MAG_W / 2));
+          var bluePx = blueLeftFor(state.distance);      // where blue sits right now
+          var blueMax = trackWidth() - 14 - MAG_W;       // blue's right wall
+          var desired = Math.max(6, Math.min(blueMax - MAG_W - 6, x - MAG_W / 2));
+          if (state.mode === "repel") {
+            if (desired > bluePx - MAG_W - 6) {
+              // Crowding the minimum gap: blue gets pushed ahead of red.
+              var newBlue = Math.min(blueMax, desired + MAG_W + 6);
+              state.redLeft = newBlue - MAG_W - 6;
+              setDistance(distanceForBlueLeft(newBlue));
+            } else {
+              state.redLeft = desired;
+              setDistance(distanceForBlueLeft(bluePx));
+            }
+          } else {
+            // Attract: how far apart would they be if blue stayed where it is?
+            state.redLeft = desired;
+            var dStay = distanceForBlueLeft(bluePx);
+            if (dStay <= 2.35) {
+              setDistance(D_MIN);   // the pull holds: blue rides along, stuck to red
+            } else {
+              setDistance(dStay);   // too far: the pull lets go, blue stays behind
+            }
+          }
         }
         redMag.addEventListener("pointerdown", function (ev) {
           if (state.pick < 0) return;
           draggingRed = true;
           redMag.classList.add("dragging");
           redMag.setPointerCapture(ev.pointerId);
-          var bluePx = blueLeftFor(state.distance);
-          state.redLeft = pointerToRedLeft(ev, bluePx);
-          setDistance(distanceForBlueLeft(bluePx));
+          redDragTo(ev);
           ev.preventDefault();
         });
         redMag.addEventListener("pointermove", function (ev) {
           if (!draggingRed) return;
-          var bluePx = blueLeftFor(state.distance);
-          state.redLeft = pointerToRedLeft(ev, bluePx);
-          setDistance(distanceForBlueLeft(bluePx));
+          redDragTo(ev);
         });
         function endRedDrag() { draggingRed = false; redMag.classList.remove("dragging"); }
         redMag.addEventListener("pointerup", endRedDrag);
