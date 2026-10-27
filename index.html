@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Forces at a Distance Lab</title>
+    <style>
+      :root {
+        --bg: #f4f7fb;
+        --card: #ffffff;
+        --ink: #16233c;
+        --ink-soft: #44557a;
+        --line: #c9d4e6;
+        --accent: #1663c7;
+        --accent-dark: #0f4c9c;
+        --accent-soft: #e3eefc;
+        --good: #177245;
+        --good-soft: #e2f4e9;
+        --warn: #9a5b00;
+        --warn-soft: #fdf0d7;
+        --magnet-red: #cf3527;
+        --magnet-red-dark: #a02318;
+        --magnet-blue: #1f6fd0;
+        --magnet-blue-dark: #14539f;
+        --track: #dde6f2;
+        --shadow: 0 1px 4px rgba(22, 35, 60, 0.12);
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101623;
+          --card: #1a2334;
+          --ink: #eef2fa;
+          --ink-soft: #a9b8d4;
+          --line: #36455f;
+          --accent: #5b9bf0;
+          --accent-dark: #8dbcff;
+          --accent-soft: #22344f;
+          --good: #5cc98c;
+          --good-soft: #1d3527;
+          --warn: #f0b95e;
+          --warn-soft: #3d2f14;
+          --track: #27334a;
+          --shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+        font-size: 18px;
+        line-height: 1.35;
+      }
+      .page {
+        max-width: 1240px;
+        margin: 0 auto;
+        padding: 6px 14px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      header.top { text-align: center; padding: 2px 0 0; }
+      header.top h1 {
+        margin: 0;
+        font-size: clamp(25px, 3.2vw, 34px);
+        font-weight: 800;
+        letter-spacing: -0.01em;
+      }
+      header.top p {
+        margin: 2px 0 0;
+        color: var(--ink-soft);
+        font-size: 16px;
+        font-weight: 600;
+      }
+      .card {
+        background: var(--card);
+        border: 1.5px solid var(--line);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 10px 16px;
+      }
+      .step-head {
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 6px;
+      }
+        background: var(--accent);
+        color: #fff;
+        font-weight: 800;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        padding: 3px 10px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      @media (prefers-color-scheme: dark) { .step-tag { color: #0d1524; } }
+      .step-head h2 { margin: 0; font-size: 20px; font-weight: 700; }
+      .step-head .picked-note { color: var(--good); font-weight: 700; font-size: 16px; }
+
+      /* ---------- Step 1: Predict ---------- */
+      .choices {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+      .choice {
+        appearance: none;
+        border: 2.5px solid var(--line);
+        background: var(--card);
+        color: var(--ink);
+        border-radius: 8px;
+        min-height: 56px;
+        padding: 8px 12px;
+        font: inherit;
+        font-size: 18px;
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .choice .letter {
+        flex: 0 0 auto;
+        width: 34px; height: 34px;
+        border-radius: 50%;
+        border: 2.5px solid var(--accent);
+        color: var(--accent);
+        display: grid; place-items: center;
+        font-weight: 800;
+      }
+      .choice:hover { border-color: var(--accent); }
+      .choice:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .choice.selected {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .choice.selected .letter { background: var(--accent); color: #fff; }
+      @media (prefers-color-scheme: dark) { .choice.selected .letter { color: #0d1524; } }
+
+      /* ---------- Step 2: Lab ---------- */
+      .lab-wrap { position: relative; }
+      .lab-wrap.locked .lab-body { opacity: 0.45; pointer-events: none; }
+      .lock-note {
+        display: none;
+        font-weight: 700;
+        color: var(--warn);
+        background: var(--warn-soft);
+        border-radius: 6px;
+        padding: 6px 12px;
+        margin-bottom: 8px;
+        font-size: 17px;
+      }
+      .lab-wrap.locked .lock-note { display: block; }
+      .lab-top {
+        display: flex;
+        gap: 14px;
+        align-items: stretch;
+        flex-wrap: wrap;
+      }
+      .mode-box {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        justify-content: center;
+        min-width: 230px;
+      }
+      .mode-badge {
+        border: 2.5px solid var(--accent);
+        border-radius: 8px;
+        padding: 8px 12px;
+        font-weight: 800;
+        font-size: 19px;
+        text-align: center;
+        background: var(--accent-soft);
+      }
+      .mode-badge small { display: block; font-weight: 600; font-size: 14.5px; color: var(--ink-soft); margin-top: 2px; }
+      .flip-btn {
+        appearance: none;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-size: 19px;
+        font-weight: 800;
+        border-radius: 8px;
+        min-height: 56px;
+        padding: 10px 16px;
+        cursor: pointer;
+        letter-spacing: 0.02em;
+      }
+      @media (prefers-color-scheme: dark) { .flip-btn { color: #0d1524; } }
+      .flip-btn:hover { background: var(--accent-dark); }
+      .flip-btn:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+      .flip-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      /* ---------- Step 2: magnet size control ---------- */
+      .size-box { display: flex; flex-direction: column; gap: 6px; }
+      .size-label { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-soft); text-align: center; }
+      .size-btns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+      .size-btn {
+        appearance: none;
+        border: 2.5px solid var(--line);
+        background: var(--card);
+        color: var(--ink);
+        border-radius: 8px;
+        min-height: 48px;
+        padding: 6px 4px;
+        font: inherit;
+        font-size: 16.5px;
+        font-weight: 800;
+        cursor: pointer;
+      }
+      .size-btn:hover { border-color: var(--accent); }
+      .size-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .size-btn.selected { border-color: var(--accent); background: var(--accent-soft); }
+      .size-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+      .readouts {
+        flex: 1 1 320px;
+        display: grid;
+        grid-template-columns: 1fr 1.6fr;
+        gap: 14px;
+        align-items: center;
+      }
+      .readout .label { font-size: 15px; font-weight: 700; letter-spacing: 0.06em; color: var(--ink-soft); }
+      .readout .value { font-size: 35px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; }
+      .readout .value .unit { font-size: 20px; font-weight: 700; color: var(--ink-soft); }
+      .gauge-shell { position: relative; margin-top: 6px; }
+      .gauge {
+        position: relative;
+        height: 30px;
+        background: var(--track);
+        border: 2px solid var(--line);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .gauge-fill {
+        height: 100%;
+        width: 1%;
+        background: var(--accent);
+        transition: width 120ms linear;
+      }
+      .gauge-threshold {
+        position: absolute;
+        top: -2px; bottom: -2px;
+        left: 25%;
+        width: 0;
+        border-left: 3.5px dashed #b3261e;
+      }
+      .gauge-caption {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--ink-soft);
+        margin-top: 3px;
+      }
+      .gauge-caption .thresh { color: #b3261e; font-weight: 800; }
+      @media (prefers-color-scheme: dark) { .gauge-caption .thresh { color: #ff8a80; } .gauge-threshold { border-left-color: #ff8a80; } }
+
+      /* Track */
+      .track-zone { margin-top: 10px; }
+      .track {
+        position: relative;
+        height: 104px;
+        background: var(--track);
+        border: 2px solid var(--line);
+        border-radius: 10px;
+        overflow: hidden;
+        touch-action: none;
+      }
+      .track:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .track .rail {
+        position: absolute;
+        left: 10px; right: 10px; top: 66px;
+        height: 8px;
+        background: var(--line);
+        border-radius: 4px;
+      }
+      .magnet {
+        position: absolute;
+        top: 12px;
+        width: 92px;
+        height: 58px;
+        border-radius: 7px;
+        display: flex;
+        align-items: stretch;
+        overflow: hidden;
+        border: 2.5px solid rgba(0,0,0,0.35);
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      .magnet .half {
+        flex: 1;
+        display: grid;
+        place-items: center;
+        color: #fff;
+        font-weight: 900;
+        font-size: 24px;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.45);
+      }
+      .magnet .half + .half { border-left: 2.5px solid rgba(0,0,0,0.35); }
+      .magnet.red { background: var(--magnet-red); transition: left 450ms ease; }
+      .magnet.red .half { background: var(--magnet-red); }
+      .magnet.red .half.south { background: var(--magnet-red-dark); }
+      .magnet.blue { background: var(--magnet-blue); cursor: grab; }
+      .magnet.blue:active { cursor: grabbing; }
+      .magnet.blue .half { background: var(--magnet-blue); }
+      .magnet.blue .half.south { background: var(--magnet-blue-dark); }
+      .magnet-name {
+        position: absolute;
+        top: 74px;
+        width: 176px;
+        margin-left: -42px;
+        text-align: center;
+        font-size: 13.5px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+      #red-name { width: 150px; margin-left: -29px; }
+      .gap-arrows {
+        position: absolute;
+        top: 20px;
+        height: 42px;
+        pointer-events: none;
+      }
+      .gap-word {
+        position: absolute;
+        top: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        color: var(--ink-soft);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .event-caption {
+        display: none;
+        margin-top: 8px;
+        border-radius: 8px;
+        padding: 9px 14px;
+        font-size: 19px;
+        font-weight: 800;
+        text-align: center;
+      }
+      .event-caption.show { display: block; }
+      .event-caption.win { background: var(--warn-soft); color: var(--warn); border: 2px solid var(--warn); }
+      .event-caption.snap { background: var(--good-soft); color: var(--good); border: 2px solid var(--good); }
+
+      .slider-row {
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .slider-row .end {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: var(--ink-soft);
+        white-space: nowrap;
+        text-align: center;
+        line-height: 1.2;
+      }
+      .slider-row input[type="range"] {
+        flex: 1;
+        height: 44px;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      .keys-hint { font-size: 14px; color: var(--ink-soft); font-weight: 600; margin-top: 2px; }
+      .model-note { font-size: 13.5px; color: var(--ink-soft); margin-top: 6px; }
+
+      /* ---------- Bottom row: graph + check ---------- */
+      .bottom-row {
+        display: grid;
+        grid-template-columns: 1.25fr 1fr;
+        gap: 10px;
+        align-items: stretch;
+      }
+      .graph-svg { width: 100%; height: auto; display: block; }
+      .graph-svg text { font-family: inherit; }
+      .check-result { display: none; margin-top: 10px; }
+      .check-result.show { display: block; }
+      .verdict {
+        font-size: 21px;
+        font-weight: 800;
+        border-radius: 8px;
+        padding: 9px 13px;
+      }
+      .verdict.right { background: var(--good-soft); color: var(--good); border: 2px solid var(--good); }
+      .verdict.wrong { background: var(--warn-soft); color: var(--warn); border: 2px solid var(--warn); }
+      .evidence { margin: 9px 0 0; font-size: 17px; }
+      .takeaway {
+        margin: 9px 0 0;
+        font-size: 18px;
+        font-weight: 700;
+        border-top: 2px solid var(--line);
+        padding-top: 9px;
+      }
+      .check-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+      .check-btn {
+        appearance: none;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font: inherit;
+        font-size: 19px;
+        font-weight: 800;
+        border-radius: 8px;
+        min-height: 56px;
+        padding: 10px 20px;
+        cursor: pointer;
+      }
+      @media (prefers-color-scheme: dark) { .check-btn { color: #0d1524; } }
+      .check-btn:hover { background: var(--accent-dark); }
+      .check-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+      .reset-btn {
+        appearance: none;
+        background: var(--card);
+        color: var(--ink);
+        border: 2.5px solid var(--ink-soft);
+        font: inherit;
+        font-size: 19px;
+        font-weight: 800;
+        border-radius: 8px;
+        min-height: 56px;
+        padding: 10px 20px;
+        cursor: pointer;
+      }
+      .check-btn:focus-visible, .reset-btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+      .your-pick { font-size: 16px; font-weight: 600; color: var(--ink-soft); margin: 0 0 10px; }
+
+      @media (max-width: 900px) {
+        .choices { grid-template-columns: 1fr 1fr; }
+        .bottom-row { grid-template-columns: 1fr; }
+        .readouts { grid-template-columns: 1fr; }
+        .readout .value { font-size: 34px; }
+      }
+      @media (max-width: 560px) {
+        .choices { grid-template-columns: 1fr; }
+        .mode-box { min-width: 0; width: 100%; }
+        body { font-size: 17px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .magnet.red, .gauge-fill { transition: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="top">
+        <h1>How close before the force wins?</h1>
+        <p>Forces at a Distance &mdash; Magnet Lab</p>
+      </header>
+
+      <!-- STEP 1 : PREDICT -->
+      <section class="card" aria-labelledby="predict-q">
+        <div class="step-head">
+          <span class="step-tag">STEP 1 &middot; PREDICT</span>
+          <h2 id="predict-q">You slide a magnet to HALF the distance from another magnet. What happens to the force between them?</h2>
+          <span class="picked-note" id="picked-note" hidden>Prediction locked in &mdash; the lab is open.</span>
+        </div>
+        <div class="choices" role="group" aria-label="Prediction choices">
+          <button type="button" class="choice" data-pick="0" aria-pressed="false"><span class="letter">a</span><span>It gets a little stronger.</span></button>
+          <button type="button" class="choice" data-pick="1" aria-pressed="false"><span class="letter">b</span><span>It doubles.</span></button>
+          <button type="button" class="choice" data-pick="2" aria-pressed="false"><span class="letter">c</span><span>It quadruples.</span></button>
+          <button type="button" class="choice" data-pick="3" aria-pressed="false"><span class="letter">d</span><span>It stays the same.</span></button>
+        </div>
+      </section>
+
+      <!-- STEP 2 : LAB -->
+      <section class="card lab-wrap locked" id="lab-wrap" aria-labelledby="lab-title">
+        <div class="step-head">
+          <span class="step-tag">STEP 2 &middot; LAB</span>
+          <h2 id="lab-title">Drag the blue magnet. Watch the force.</h2>
+        </div>
+        <p class="lock-note" id="lock-note">The lab is locked. Pick a prediction in Step 1 first.</p>
+        <div class="lab-body">
+          <div class="lab-top">
+            <div class="mode-box">
+              <div class="mode-badge" id="mode-badge">MODE: REPEL
+                <small id="mode-sub">Same poles face each other (N&ndash;N): the magnets PUSH apart</small>
+              </div>
+              <button type="button" class="flip-btn" id="flip-btn" disabled>FLIP THE POLE</button>
+              <div class="size-box">
+                <div class="size-label">MAGNET SIZE</div>
+                <div class="size-btns" role="group" aria-label="Magnet size">
+                  <button type="button" class="size-btn" data-size="small" aria-pressed="false" disabled>SMALL</button>
+                  <button type="button" class="size-btn selected" data-size="medium" aria-pressed="true" disabled>MEDIUM</button>
+                  <button type="button" class="size-btn" data-size="large" aria-pressed="false" disabled>LARGE</button>
+                </div>
+              </div>
+            </div>
+            <div class="readouts">
+              <div class="readout">
+                <div class="label">DISTANCE BETWEEN MAGNETS</div>
+                <div class="value"><span id="dist-value">20.0</span> <span class="unit">cm</span></div>
+              </div>
+              <div class="readout">
+                <div class="label">FORCE</div>
+                <div class="value"><span id="force-value">1.0</span> <span class="unit">force units</span></div>
+                <div class="gauge-shell">
+                  <div class="gauge">
+                    <div class="gauge-fill" id="gauge-fill"></div>
+                    <div class="gauge-threshold" aria-hidden="true"></div>
+                  </div>
+                  <div class="gauge-caption">
+                    <span>0</span>
+                    <span class="thresh">FORCE WINS line: 25 units</span>
+                    <span>100</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="track-zone">
+            <div class="track" id="track" tabindex="0" role="slider"
+                 aria-label="Magnet track. Use left and right arrow keys to move the blue magnet."
+                 aria-valuemin="2" aria-valuemax="20" aria-valuenow="20" aria-valuetext="20 centimetres apart">
+              <div class="rail" aria-hidden="true"></div>
+              <div class="magnet red" id="magnet-red">
+                <div class="half south" id="red-left">S</div>
+                <div class="half" id="red-right">N</div>
+              </div>
+              <div class="magnet-name" id="red-name">RED MAGNET (fixed)</div>
+              <div class="gap-word" id="gap-word">PUSHING APART</div>
+              <div class="gap-arrows" id="gap-arrows" aria-hidden="true"></div>
+              <div class="magnet blue" id="magnet-blue">
+                <div class="half" id="blue-left">N</div>
+                <div class="half south" id="blue-right">S</div>
+              </div>
+              <div class="magnet-name" id="blue-name">BLUE MAGNET (slide me)</div>
+            </div>
+            <div class="event-caption" id="event-caption" aria-live="polite"></div>
+            <div class="slider-row">
+              <span class="end">2 cm<br />CLOSE</span>
+              <input type="range" id="dist-slider" min="2" max="20" step="0.1" value="20" disabled
+                     aria-label="Distance slider. Left is close, 2 centimetres. Right is far, 20 centimetres." />
+              <span class="end">20 cm<br />FAR</span>
+            </div>
+            <div class="keys-hint">Keyboard: click the track, then use the &#8592; and &#8594; arrow keys to slide the blue magnet.</div>
+            <p class="model-note">Model: this lab uses force proportional to 1 / distance squared. The size buttons change how strong the magnet pair is at every distance.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- BOTTOM : GRAPH + STEP 3 CHECK -->
+      <div class="bottom-row">
+        <section class="card" aria-labelledby="graph-title">
+          <div class="step-head">
+            <span class="step-tag">YOUR GRAPH</span>
+            <h2 id="graph-title">Force vs. distance &mdash; drawn as you explore</h2>
+          </div>
+          <svg class="graph-svg" id="graph" viewBox="0 0 600 192" role="img"
+               aria-label="Graph of force against distance. The line is drawn from the distances you have tried. A marked dot shows the half-distance point and its force.">
+            <!-- gridlines + y labels (force) -->
+            <g id="graph-grid"></g>
+            <path id="graph-curve" fill="none" stroke="var(--accent)" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round" d="" />
+            <g id="graph-half"></g>
+            <circle id="graph-now" r="5.5" fill="var(--ink)" stroke="var(--card)" stroke-width="2" cx="-10" cy="-10" />
+            <text id="graph-now-label" font-size="13" font-weight="700" fill="var(--ink)"></text>
+            <text x="300" y="186" text-anchor="middle" font-size="14" font-weight="700" fill="var(--ink)">Distance (cm)</text>
+            <text x="16" y="85" font-size="14" font-weight="700" fill="var(--ink)" transform="rotate(-90 16 85)" text-anchor="middle">Force (units)</text>
+          </svg>
+        </section>
+
+        <section class="card" aria-labelledby="check-title">
+          <div class="step-head">
+            <span class="step-tag">STEP 3 &middot; CHECK</span>
+            <h2 id="check-title">Did your prediction hold up?</h2>
+          </div>
+          <p class="your-pick" id="your-pick">Your prediction: none yet &mdash; pick one in Step 1.</p>
+          <div class="check-btns">
+            <button type="button" class="check-btn" id="check-btn" disabled>CHECK MY PREDICTION</button>
+            <button type="button" class="reset-btn" id="reset-btn">RESET</button>
+          </div>
+          <div class="check-result" id="check-result" aria-live="polite">
+            <div class="verdict" id="verdict"></div>
+            <p class="evidence" id="evidence"></p>
+            <p class="takeaway">Halve the distance, the force quadruples. A force at a distance does not fade evenly. It fades fast.</p>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var SIZE_K = { small: 200, medium: 400, large: 800 }; // magnet size scales the constant
+        var K = SIZE_K.medium;    // force = K / d^2  ->  medium: d=20:1, d=10:4, d=4:25, d=2:100
+        var D_MIN = 2, D_MAX = 20;
+        var THRESHOLD = 25;       // force-wins line on the gauge
+        var START_D = 20;         // starting distance; half of it is 10 cm
+        var HALF_D = START_D / 2; // 10 cm
+        var CORRECT_PICK = 2;     // (c) It quadruples
+        var PICK_TEXT = [
+          "It gets a little stronger.",
+          "It doubles.",
+          "It quadruples.",
+          "It stays the same."
+        ];
+        var PICK_LETTER = ["a", "b", "c", "d"];
+
+        var state = {
+          pick: -1,
+          distance: START_D,
+          size: "medium",       // "small" | "medium" | "large"
+          mode: "repel",        // "repel" | "attract"
+          forceWins: false,
+          snapped: false,
+          explored: {}          // rounded distance -> force
+        };
+
+        // Elements
+        var choiceBtns = Array.prototype.slice.call(document.querySelectorAll(".choice"));
+        var pickedNote = document.getElementById("picked-note");
+        var labWrap = document.getElementById("lab-wrap");
+        var flipBtn = document.getElementById("flip-btn");
+        var sizeBtns = Array.prototype.slice.call(document.querySelectorAll(".size-btn"));
+        var modeBadge = document.getElementById("mode-badge");
+        var modeSub = document.getElementById("mode-sub");
+        var distValue = document.getElementById("dist-value");
+        var forceValue = document.getElementById("force-value");
+        var gaugeFill = document.getElementById("gauge-fill");
+        var track = document.getElementById("track");
+        var redMag = document.getElementById("magnet-red");
+        var blueMag = document.getElementById("magnet-blue");
+        var redName = document.getElementById("red-name");
+        var blueName = document.getElementById("blue-name");
+        var redRight = document.getElementById("red-right");
+        var blueLeft = document.getElementById("blue-left");
+        var blueRight = document.getElementById("blue-right");
+        var gapArrows = document.getElementById("gap-arrows");
+        var gapWord = document.getElementById("gap-word");
+        var caption = document.getElementById("event-caption");
+        var slider = document.getElementById("dist-slider");
+        var checkBtn = document.getElementById("check-btn");
+        var resetBtn = document.getElementById("reset-btn");
+        var yourPick = document.getElementById("your-pick");
+        var checkResult = document.getElementById("check-result");
+        var verdict = document.getElementById("verdict");
+        var evidence = document.getElementById("evidence");
+
+        // Graph geometry (viewBox 600 x 192)
+        var G = { x0: 52, x1: 578, y0: 156, y1: 12 }; // plot area; y0 = force 0, y1 = force 100
+        function gx(d) { return G.x0 + (d - D_MIN) / (D_MAX - D_MIN) * (G.x1 - G.x0); }
+        function gy(f) { return G.y0 - (f / 100) * (G.y0 - G.y1); }
+
+        function buildGraphStatic() {
+          var grid = document.getElementById("graph-grid");
+          var s = "";
+          var f, d, i;
+          // horizontal gridlines at 0,25,50,75,100
+          var levels = [0, 25, 50, 75, 100];
+          for (i = 0; i < levels.length; i++) {
+            f = levels[i];
+            s += '<line x1="' + G.x0 + '" y1="' + gy(f) + '" x2="' + G.x1 + '" y2="' + gy(f) +
+                 '" stroke="var(--line)" stroke-width="' + (f === 0 ? 2 : 1) + '" />';
+            s += '<text x="' + (G.x0 - 7) + '" y="' + (gy(f) + 4) + '" text-anchor="end" font-size="12.5" font-weight="600" fill="var(--ink-soft)">' + f + "</text>";
+          }
+          // threshold dashed line label
+          s += '<text x="' + (G.x1 - 2) + '" y="' + (gy(THRESHOLD) - 5) + '" text-anchor="end" font-size="12" font-weight="800" fill="#b3261e">FORCE WINS line: 25</text>';
+          // x ticks at 2,5,10,15,20
+          var ticks = [2, 5, 10, 15, 20];
+          for (i = 0; i < ticks.length; i++) {
+            d = ticks[i];
+            s += '<line x1="' + gx(d) + '" y1="' + G.y0 + '" x2="' + gx(d) + '" y2="' + (G.y0 + 5) + '" stroke="var(--line)" stroke-width="2" />';
+            s += '<text x="' + gx(d) + '" y="' + (G.y0 + 20) + '" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--ink-soft)">' + d + "</text>";
+          }
+          grid.innerHTML = s;
+        }
+
+        // Half-distance reference dot, recomputed for the current magnet size:
+        // (10 cm, K/100 units) vs start (20 cm, K/400 units). The ratio is always 4x.
+        function drawHalfMarker() {
+          var half = document.getElementById("graph-half");
+          var hf = K / (HALF_D * HALF_D);
+          var sf = K / (START_D * START_D);
+          var h = "";
+          h += '<line x1="' + gx(HALF_D) + '" y1="' + gy(hf) + '" x2="' + gx(HALF_D) + '" y2="' + G.y0 + '" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 4" />';
+          h += '<line x1="' + G.x0 + '" y1="' + gy(hf) + '" x2="' + gx(HALF_D) + '" y2="' + gy(hf) + '" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 4" />';
+          h += '<circle cx="' + gx(START_D) + '" cy="' + gy(sf) + '" r="5" fill="var(--card)" stroke="var(--ink)" stroke-width="2.5" />';
+          h += '<circle cx="' + gx(HALF_D) + '" cy="' + gy(hf) + '" r="6.5" fill="#b3261e" stroke="var(--card)" stroke-width="2" />';
+          h += '<text x="' + (gx(HALF_D) - 10) + '" y="' + (gy(hf) - 26) + '" text-anchor="end" font-size="13.5" font-weight="800" fill="var(--ink)">HALF distance: 10 cm</text>';
+          h += '<text x="' + (gx(HALF_D) - 10) + '" y="' + (gy(hf) - 9) + '" text-anchor="end" font-size="13.5" font-weight="800" fill="#b3261e">force = ' + fmtSmart(hf) + ' units (4&#215; the start)</text>';
+          h += '<text x="' + (gx(START_D) - 4) + '" y="' + (gy(sf) - 12) + '" text-anchor="end" font-size="12.5" font-weight="700" fill="var(--ink-soft)">start: 20 cm, ' + fmtSmart(sf) + (sf === 1 ? " unit" : " units") + '</text>';
+          half.innerHTML = h;
+        }
+
+        function forceAt(d) { return K / (d * d); }
+        function fmt(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+        function fmtSmart(n) { return String(Math.round(n * 10) / 10); } // 4 -> "4", 0.5 -> "0.5"
+
+        // Track geometry
+        var MAG_W = 92;
+        var RED_LEFT = 64;        // normal position of red magnet (room to be pushed left)
+        var RED_PUSHED = 6;       // where it slides when the force wins
+        function trackWidth() { return track.clientWidth; }
+        function blueLeftFor(d) {
+          var w = trackWidth();
+          var redFace = RED_LEFT + MAG_W;
+          var maxGap = w - 14 - MAG_W - redFace;      // gap at d = 20
+          var gap = 6 + (d - D_MIN) / (D_MAX - D_MIN) * (maxGap - 6);
+          return redFace + gap;
+        }
+        function distanceForBlueLeft(left) {
+          var w = trackWidth();
+          var redFace = RED_LEFT + MAG_W;
+          var maxGap = w - 14 - MAG_W - redFace;
+          var gap = left - redFace;
+          var d = D_MIN + (gap - 6) / (maxGap - 6) * (D_MAX - D_MIN);
+          return Math.max(D_MIN, Math.min(D_MAX, d));
+        }
+
+        function drawArrows(gapPx, f) {
+          // Two arrows in the gap. Length grows with force.
+          var len = Math.max(10, Math.min(gapPx / 2 - 8, 12 + Math.sqrt(f) * 4.2));
+          var midY = 21;
+          var left, right;
+          var color = "var(--ink)";
+          if (state.mode === "attract") {
+            // arrows point TOWARD each other
+            left = '<line x1="2" y1="' + midY + '" x2="' + (2 + len) + '" y2="' + midY + '" stroke="' + color + '" stroke-width="4"/>' +
+                   '<polygon points="' + (2 + len + 9) + ',' + midY + ' ' + (2 + len) + ',' + (midY - 6) + ' ' + (2 + len) + ',' + (midY + 6) + '" fill="' + color + '"/>';
+            right = '<line x1="' + (gapPx - 2) + '" y1="' + midY + '" x2="' + (gapPx - 2 - len) + '" y2="' + midY + '" stroke="' + color + '" stroke-width="4"/>' +
+                    '<polygon points="' + (gapPx - 2 - len - 9) + ',' + midY + ' ' + (gapPx - 2 - len) + ',' + (midY - 6) + ' ' + (gapPx - 2 - len) + ',' + (midY + 6) + '" fill="' + color + '"/>';
+          } else {
+            // arrows point AWAY from each other
+            left = '<line x1="' + (gapPx / 2 - 4) + '" y1="' + midY + '" x2="' + (gapPx / 2 - 4 - len) + '" y2="' + midY + '" stroke="' + color + '" stroke-width="4"/>' +
+                   '<polygon points="' + (gapPx / 2 - 4 - len - 9) + ',' + midY + ' ' + (gapPx / 2 - 4 - len) + ',' + (midY - 6) + ' ' + (gapPx / 2 - 4 - len) + ',' + (midY + 6) + '" fill="' + color + '"/>';
+            right = '<line x1="' + (gapPx / 2 + 4) + '" y1="' + midY + '" x2="' + (gapPx / 2 + 4 + len) + '" y2="' + midY + '" stroke="' + color + '" stroke-width="4"/>' +
+                    '<polygon points="' + (gapPx / 2 + 4 + len + 9) + ',' + midY + ' ' + (gapPx / 2 + 4 + len) + ',' + (midY - 6) + ' ' + (gapPx / 2 + 4 + len) + ',' + (midY + 6) + '" fill="' + color + '"/>';
+          }
+          gapArrows.innerHTML = '<svg width="' + gapPx + '" height="42" aria-hidden="true">' + left + right + "</svg>";
+        }
+
+        function drawGraph() {
+          // The half-distance marker states the answer (4x), so keep it hidden
+          // until a prediction has been picked, per "do not reveal the answer yet".
+          document.getElementById("graph-half").style.display = state.pick >= 0 ? "" : "none";
+          var keys = Object.keys(state.explored).map(Number).sort(function (a, b) { return a - b; });
+          var path = document.getElementById("graph-curve");
+          if (keys.length === 0) { path.setAttribute("d", ""); }
+          else {
+            var dAttr = keys.map(function (d, i) {
+              return (i === 0 ? "M" : "L") + gx(d).toFixed(1) + " " + gy(state.explored[d]).toFixed(1);
+            }).join(" ");
+            path.setAttribute("d", dAttr);
+          }
+          var now = document.getElementById("graph-now");
+          var nowLabel = document.getElementById("graph-now-label");
+          var cx = gx(state.distance), cy = gy(forceAt(state.distance));
+          now.setAttribute("cx", cx); now.setAttribute("cy", cy);
+          // Near the start point the "start" annotation already labels the dot;
+          // showing "you are here" too would print the two labels on top of each other.
+          if (Math.abs(state.distance - START_D) < 0.6) {
+            nowLabel.textContent = "";
+          } else {
+            nowLabel.setAttribute("x", Math.min(cx + 9, G.x1 - 88));
+            nowLabel.setAttribute("y", Math.max(cy - 9, 13));
+            nowLabel.textContent = "you are here";
+          }
+        }
+
+        function update() {
+          var d = state.distance;
+          var f = forceAt(d);
+
+          // Explored trail (store by 0.25 cm steps so the curve fills in smoothly)
+          var key = Math.round(d * 4) / 4;
+          state.explored[key] = forceAt(key);
+
+          // Mode-dependent events
+          state.forceWins = state.mode === "repel" && f >= THRESHOLD;
+          state.snapped = state.mode === "attract" && d <= 2.35;
+
+          // Positions
+          var redLeft = state.forceWins ? RED_PUSHED : RED_LEFT;
+          redMag.style.left = redLeft + "px";
+          // Keep the red name tag inside the track even when the magnet is pushed.
+          redName.style.left = Math.max(redLeft, 31) + "px";
+          var bLeft = blueLeftFor(d);
+          if (state.snapped) bLeft = redLeft + MAG_W; // touching the red magnet
+          blueMag.style.left = bLeft + "px";
+          // Keep the 176px-wide name tag inside the track at the far-right end.
+          blueName.style.left = Math.min(bLeft, trackWidth() - 182) + "px";
+          // When the magnets are close together the two name tags would print
+          // on top of each other; hide the blue tag until there is room again.
+          blueName.style.visibility = (bLeft - redLeft < 218) ? "hidden" : "visible";
+
+          // Gap arrows + word
+          var gapPx = Math.max(0, bLeft - (redLeft + MAG_W));
+          gapArrows.style.left = (redLeft + MAG_W) + "px";
+          gapArrows.style.width = gapPx + "px";
+          gapWord.style.left = (redLeft + MAG_W) + "px";
+          gapWord.style.width = gapPx + "px";
+          gapWord.textContent = gapPx > 110 ? (state.mode === "attract" ? "PULLING TOGETHER" : "PUSHING APART") : "";
+          if (gapPx > 44) drawArrows(gapPx, f); else gapArrows.innerHTML = "";
+
+          // Readouts
+          distValue.textContent = state.snapped ? "0.0" : fmt(d);
+          forceValue.textContent = fmt(f);
+          gaugeFill.style.width = Math.min(100, f) + "%";
+
+          // Slider + ARIA in sync (avoid fighting the user while they drag the slider)
+          if (document.activeElement !== slider) slider.value = d;
+          track.setAttribute("aria-valuenow", fmt(d));
+          track.setAttribute("aria-valuetext", state.snapped ? "Magnets snapped together" : fmt(d) + " centimetres apart");
+
+          // Event caption
+          if (state.forceWins) {
+            caption.className = "event-caption show win";
+            caption.textContent = "THE FORCE WINS! Past 25 units, the push was strong enough to shove the \u201Cfixed\u201D magnet.";
+          } else if (state.snapped) {
+            caption.className = "event-caption show snap";
+            caption.textContent = "SNAP! Close enough \u2014 the pull wins and the magnets stick together.";
+          } else {
+            caption.className = "event-caption";
+            caption.textContent = "";
+          }
+
+          drawGraph();
+        }
+
+        function setDistance(d) {
+          state.distance = Math.max(D_MIN, Math.min(D_MAX, d));
+          update();
+        }
+
+        function setMode(mode) {
+          state.mode = mode;
+          if (mode === "repel") {
+            modeBadge.firstChild.nodeValue = "MODE: REPEL ";
+            modeSub.textContent = "Same poles face each other (N\u2013N): the magnets PUSH apart";
+            blueLeft.textContent = "N";
+            blueLeft.classList.remove("south");
+            blueRight.textContent = "S";
+            blueRight.classList.add("south");
+          } else {
+            modeBadge.firstChild.nodeValue = "MODE: ATTRACT ";
+            modeSub.textContent = "Opposite poles face each other (N\u2013S): the magnets PULL together";
+            blueLeft.textContent = "S";
+            blueLeft.classList.add("south");
+            blueRight.textContent = "N";
+            blueRight.classList.remove("south");
+          }
+          update();
+        }
+
+        // ----- Magnet size -----
+        function setSize(size) {
+          state.size = size;
+          K = SIZE_K[size];
+          sizeBtns.forEach(function (b) {
+            var on = b.getAttribute("data-size") === size;
+            b.classList.toggle("selected", on);
+            b.setAttribute("aria-pressed", on ? "true" : "false");
+          });
+          state.explored = {};   // the graph curve belongs to one size at a time
+          drawHalfMarker();
+          update();
+        }
+        sizeBtns.forEach(function (btn) {
+          btn.addEventListener("click", function () { setSize(btn.getAttribute("data-size")); });
+        });
+
+        // ----- Step 1: prediction -----
+        choiceBtns.forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            state.pick = Number(btn.getAttribute("data-pick"));
+            choiceBtns.forEach(function (b) {
+              var on = b === btn;
+              b.classList.toggle("selected", on);
+              b.setAttribute("aria-pressed", on ? "true" : "false");
+            });
+            pickedNote.hidden = false;
+            labWrap.classList.remove("locked");
+            document.getElementById("lock-note").style.display = "none";
+            flipBtn.disabled = false;
+            sizeBtns.forEach(function (b) { b.disabled = false; });
+            slider.disabled = false;
+            checkBtn.disabled = false;
+            yourPick.textContent = "Your prediction: (" + PICK_LETTER[state.pick] + ") " + PICK_TEXT[state.pick];
+            checkResult.classList.remove("show");
+            update();
+          });
+        });
+
+        // ----- Flip -----
+        flipBtn.addEventListener("click", function () {
+          setMode(state.mode === "repel" ? "attract" : "repel");
+        });
+
+        // ----- Slider -----
+        slider.addEventListener("input", function () { setDistance(Number(slider.value)); });
+
+        // ----- Drag the blue magnet -----
+        var dragging = false;
+        function pointerToDistance(ev) {
+          var rect = track.getBoundingClientRect();
+          var x = ev.clientX - rect.left;
+          return distanceForBlueLeft(x - MAG_W / 2);
+        }
+        blueMag.addEventListener("pointerdown", function (ev) {
+          if (state.pick < 0) return;
+          dragging = true;
+          blueMag.setPointerCapture(ev.pointerId);
+          setDistance(pointerToDistance(ev));
+          ev.preventDefault();
+        });
+        blueMag.addEventListener("pointermove", function (ev) {
+          if (!dragging) return;
+          setDistance(pointerToDistance(ev));
+        });
+        blueMag.addEventListener("pointerup", function () { dragging = false; });
+        blueMag.addEventListener("pointercancel", function () { dragging = false; });
+        track.addEventListener("pointerdown", function (ev) {
+          if (state.pick < 0 || ev.target === blueMag || blueMag.contains(ev.target)) return;
+          setDistance(pointerToDistance(ev));
+        });
+
+        // ----- Keyboard on the track -----
+        track.addEventListener("keydown", function (ev) {
+          if (state.pick < 0) return;
+          var step = ev.shiftKey ? 2 : 0.5;
+          if (ev.key === "ArrowLeft") { setDistance(state.distance - step); ev.preventDefault(); }
+          else if (ev.key === "ArrowRight") { setDistance(state.distance + step); ev.preventDefault(); }
+          else if (ev.key === "Home") { setDistance(D_MIN); ev.preventDefault(); }
+          else if (ev.key === "End") { setDistance(D_MAX); ev.preventDefault(); }
+        });
+
+        // ----- Step 3: check -----
+        checkBtn.addEventListener("click", function () {
+          if (state.pick < 0) return;
+          var right = state.pick === CORRECT_PICK;
+          verdict.className = "verdict " + (right ? "right" : "wrong");
+          verdict.textContent = right
+            ? "You were right! It quadruples."
+            : "Not quite \u2014 your graph tells a different story.";
+          var triedHalf = Object.keys(state.explored).some(function (k) { return Math.abs(Number(k) - HALF_D) <= 1; });
+          var sfNow = forceAt(START_D), hfNow = forceAt(HALF_D);
+          evidence.textContent =
+            "Look at your graph: at 20 cm the force is " + fmt(sfNow) + (sfNow === 1 ? " unit" : " units") + ". At 10 cm \u2014 half the distance \u2014 the force is " + fmt(hfNow) + " units. " +
+            "That is 4 times stronger, not 2." +
+            (triedHalf ? " You visited that half-distance point yourself \u2014 it is the red dot on your graph." :
+                         " Drag the blue magnet to 10 cm and watch the red dot on the graph: the force there is " + fmt(hfNow) + " units.");
+          checkResult.classList.add("show");
+        });
+
+        // ----- Reset -----
+        resetBtn.addEventListener("click", function () {
+          state.pick = -1;
+          state.explored = {};
+          choiceBtns.forEach(function (b) {
+            b.classList.remove("selected");
+            b.setAttribute("aria-pressed", "false");
+          });
+          pickedNote.hidden = true;
+          labWrap.classList.add("locked");
+          document.getElementById("lock-note").style.display = "";
+          flipBtn.disabled = true;
+          sizeBtns.forEach(function (b) { b.disabled = true; });
+          setSize("medium");
+          slider.disabled = true;
+          checkBtn.disabled = true;
+          yourPick.textContent = "Your prediction: none yet \u2014 pick one in Step 1.";
+          checkResult.classList.remove("show");
+          state.distance = START_D;
+          slider.value = START_D;
+          setMode("repel");
+          update();
+        });
+
+        window.addEventListener("resize", update);
+
+        buildGraphStatic();
+        drawHalfMarker();
+        setMode("repel");
+        update();
+      })();
+    </script>
+  </body>
+</html>
