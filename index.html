@@ -717,18 +717,24 @@
         // Distance is an absolute scale, fixed by the home layout (red at RED_LEFT):
         // the gap for a given distance is the same wherever the red magnet sits,
         // so sliding red with blue held still truly changes the distance.
-        function gapForDistance(d) {
+        // The cm scale's pixel span, floored: on a narrow track (phone, or the
+        // LARGE pair) the raw span can shrink to zero and poison every distance
+        // with NaN. The floor keeps the scale sane; the wall clamps do the rest.
+        function gapSpan() {
           var maxGap = trackWidth() - 14 - MAG_W - (RED_LEFT + MAG_W);   // gap at d = 20, red at home
-          return 6 + (d - D_MIN) / (D_MAX - D_MIN) * (maxGap - 6);
+          return Math.max(48, maxGap - 6);
+        }
+        function gapForDistance(d) {
+          return 6 + (d - D_MIN) / (D_MAX - D_MIN) * gapSpan();
         }
         function blueLeftFor(d) {
           var px = state.redLeft + MAG_W + gapForDistance(d);
           return Math.min(px, trackWidth() - 14 - MAG_W);   // never past the right wall
         }
         function distanceForBlueLeft(left) {
-          var maxGap = trackWidth() - 14 - MAG_W - (RED_LEFT + MAG_W);
           var gap = left - (state.redLeft + MAG_W);
-          var d = D_MIN + (gap - 6) / (maxGap - 6) * (D_MAX - D_MIN);
+          var d = D_MIN + (gap - 6) / gapSpan() * (D_MAX - D_MIN);
+          if (!isFinite(d)) d = D_MIN;
           return Math.max(D_MIN, Math.min(D_MAX, d));
         }
 
@@ -845,6 +851,7 @@
         }
 
         function setDistance(d) {
+          if (!isFinite(d)) { update(); return; }   // a bad reading never poisons the lab
           state.distance = Math.max(D_MIN, Math.min(D_MAX, d));
           // With red dragged right, the far distances no longer fit on the track:
           // the biggest distance is the one that puts blue against the right wall.
