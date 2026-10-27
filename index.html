@@ -308,13 +308,14 @@
         text-shadow: 0 1px 2px rgba(0,0,0,0.45);
       }
       .magnet .half + .half { border-left: 2.5px solid rgba(0,0,0,0.35); }
-      .magnet.red { background: var(--magnet-red); transition: left 450ms ease; }
-      .magnet.red .half { background: var(--magnet-red); }
-      .magnet.red .half.south { background: var(--magnet-red-dark); }
-      .magnet.blue { background: var(--magnet-blue); cursor: grab; }
+      .magnet { transition: width 250ms ease, height 250ms ease; }
+      .magnet.red { background: var(--magnet-red-dark); transition: left 450ms ease, width 250ms ease, height 250ms ease; cursor: grab; touch-action: none; }
+      .magnet.red.dragging { transition: width 250ms ease, height 250ms ease; cursor: grabbing; }
+      .magnet.blue { background: var(--magnet-blue-dark); cursor: grab; }
       .magnet.blue:active { cursor: grabbing; }
-      .magnet.blue .half { background: var(--magnet-blue); }
-      .magnet.blue .half.south { background: var(--magnet-blue-dark); }
+      /* Color follows the POLE, like a real bar magnet: N is red, S is blue. */
+      .magnet .half { background: var(--magnet-red); }
+      .magnet .half.south { background: var(--magnet-blue); }
       .magnet-name {
         position: absolute;
         top: 74px;
@@ -484,7 +485,7 @@
       <section class="card lab-wrap locked" id="lab-wrap" aria-labelledby="lab-title">
         <div class="step-head">
           <span class="step-tag">STEP 2 &middot; LAB</span>
-          <h2 id="lab-title">Drag the blue magnet. Watch the force.</h2>
+          <h2 id="lab-title">Drag either magnet. Watch the force.</h2>
         </div>
         <p class="lock-note" id="lock-note">The lab is locked. Pick a prediction in Step 1 first.</p>
         <div class="lab-body">
@@ -535,7 +536,7 @@
                 <div class="half south" id="red-left">S</div>
                 <div class="half" id="red-right">N</div>
               </div>
-              <div class="magnet-name" id="red-name">RED MAGNET (fixed)</div>
+              <div class="magnet-name" id="red-name">RED MAGNET</div>
               <div class="gap-word" id="gap-word">PUSHING APART</div>
               <div class="gap-arrows" id="gap-arrows" aria-hidden="true"></div>
               <div class="magnet blue" id="magnet-blue">
@@ -618,6 +619,7 @@
         var state = {
           pick: -1,
           distance: START_D,
+          redLeft: 64,          // home position (px) of the red magnet; the student can drag it
           size: "medium",       // "small" | "medium" | "large"
           mode: "repel",        // "repel" | "attract"
           forceWins: false,
@@ -707,19 +709,21 @@
 
         // Track geometry
         var MAG_W = 92;
-        var RED_LEFT = 64;        // normal position of red magnet (room to be pushed left)
-        var RED_PUSHED = 6;       // where it slides when the force wins
+        var MAG_W_MAP = { small: 76, medium: 92, large: 112 };  // magnet width on screen, px
+        var MAG_H_MAP = { small: 48, medium: 58, large: 70 };   // magnet height on screen, px
+        var RED_LEFT = 64;        // default home of the red magnet (room to be pushed left)
+        var RED_PUSHED = 6;       // where it slides to when the force wins
         function trackWidth() { return track.clientWidth; }
         function blueLeftFor(d) {
           var w = trackWidth();
-          var redFace = RED_LEFT + MAG_W;
+          var redFace = state.redLeft + MAG_W;
           var maxGap = w - 14 - MAG_W - redFace;      // gap at d = 20
           var gap = 6 + (d - D_MIN) / (D_MAX - D_MIN) * (maxGap - 6);
           return redFace + gap;
         }
         function distanceForBlueLeft(left) {
           var w = trackWidth();
-          var redFace = RED_LEFT + MAG_W;
+          var redFace = state.redLeft + MAG_W;
           var maxGap = w - 14 - MAG_W - redFace;
           var gap = left - redFace;
           var d = D_MIN + (gap - 6) / (maxGap - 6) * (D_MAX - D_MIN);
@@ -788,8 +792,10 @@
           state.forceWins = state.mode === "repel" && f >= THRESHOLD;
           state.snapped = state.mode === "attract" && d <= 2.35;
 
-          // Positions
-          var redLeft = state.forceWins ? RED_PUSHED : RED_LEFT;
+          // Positions (while the red magnet is being dragged it sits at its home;
+          // otherwise the FORCE WINS shove slides it left from home)
+          var redLeft = draggingRed ? state.redLeft
+            : (state.forceWins ? Math.max(RED_PUSHED, state.redLeft - (RED_LEFT - RED_PUSHED)) : state.redLeft);
           redMag.style.left = redLeft + "px";
           // Keep the red name tag inside the track even when the magnet is pushed.
           redName.style.left = Math.max(redLeft, 31) + "px";
@@ -824,7 +830,7 @@
           // Event caption
           if (state.forceWins) {
             caption.className = "event-caption show win";
-            caption.textContent = "THE FORCE WINS! Past 25 units, the push was strong enough to shove the \u201Cfixed\u201D magnet.";
+            caption.textContent = "THE FORCE WINS! Past 25 units, the push was strong enough to shove the red magnet.";
           } else if (state.snapped) {
             caption.className = "event-caption show snap";
             caption.textContent = "SNAP! Close enough \u2014 the pull wins and the magnets stick together.";
@@ -862,6 +868,20 @@
         }
 
         // ----- Magnet size -----
+        // The size buttons change the magnets themselves on screen, not just the force.
+        function applyMagnetSize() {
+          MAG_W = MAG_W_MAP[state.size];
+          var h = MAG_H_MAP[state.size];
+          redMag.style.width = MAG_W + "px";
+          blueMag.style.width = MAG_W + "px";
+          redMag.style.height = h + "px";
+          blueMag.style.height = h + "px";
+          redName.style.top = (12 + h + 4) + "px";
+          blueName.style.top = (12 + h + 4) + "px";
+          // A bigger pair needs more track: pull the red magnet back if it no longer fits.
+          var maxRed = trackWidth() - 14 - MAG_W - 6 - MAG_W;
+          if (state.redLeft > maxRed) state.redLeft = Math.max(6, maxRed);
+        }
         function setSize(size) {
           state.size = size;
           K = SIZE_K[size];
@@ -871,6 +891,7 @@
             b.setAttribute("aria-pressed", on ? "true" : "false");
           });
           state.explored = {};   // the graph curve belongs to one size at a time
+          applyMagnetSize();
           drawHalfMarker();
           update();
         }
@@ -928,8 +949,38 @@
         });
         blueMag.addEventListener("pointerup", function () { dragging = false; });
         blueMag.addEventListener("pointercancel", function () { dragging = false; });
+
+        // ----- Drag the red magnet (the blue one stays put; the gap changes) -----
+        var draggingRed = false;
+        function pointerToRedLeft(ev, bluePx) {
+          var rect = track.getBoundingClientRect();
+          var x = ev.clientX - rect.left;
+          var maxL = bluePx - MAG_W - 6;   // never slide it past the blue magnet
+          return Math.max(6, Math.min(maxL, x - MAG_W / 2));
+        }
+        redMag.addEventListener("pointerdown", function (ev) {
+          if (state.pick < 0) return;
+          draggingRed = true;
+          redMag.classList.add("dragging");
+          redMag.setPointerCapture(ev.pointerId);
+          var bluePx = blueLeftFor(state.distance);
+          state.redLeft = pointerToRedLeft(ev, bluePx);
+          setDistance(distanceForBlueLeft(bluePx));
+          ev.preventDefault();
+        });
+        redMag.addEventListener("pointermove", function (ev) {
+          if (!draggingRed) return;
+          var bluePx = blueLeftFor(state.distance);
+          state.redLeft = pointerToRedLeft(ev, bluePx);
+          setDistance(distanceForBlueLeft(bluePx));
+        });
+        function endRedDrag() { draggingRed = false; redMag.classList.remove("dragging"); }
+        redMag.addEventListener("pointerup", endRedDrag);
+        redMag.addEventListener("pointercancel", endRedDrag);
+
         track.addEventListener("pointerdown", function (ev) {
-          if (state.pick < 0 || ev.target === blueMag || blueMag.contains(ev.target)) return;
+          if (state.pick < 0 || ev.target === blueMag || blueMag.contains(ev.target) ||
+              ev.target === redMag || redMag.contains(ev.target)) return;
           setDistance(pointerToDistance(ev));
         });
 
@@ -980,6 +1031,7 @@
           yourPick.textContent = "Your prediction: none yet \u2014 pick one in Step 1.";
           checkResult.classList.remove("show");
           state.distance = START_D;
+          state.redLeft = RED_LEFT;
           slider.value = START_D;
           setMode("repel");
           update();
@@ -989,6 +1041,7 @@
 
         buildGraphStatic();
         drawHalfMarker();
+        applyMagnetSize();
         setMode("repel");
         update();
       })();
